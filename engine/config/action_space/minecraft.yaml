@@ -1,0 +1,41 @@
+# action_space/minecraft.yaml —— Minecraft 合法操作白名单
+keys:
+  - "W"
+  - "A"
+  - "S"
+  - "D"
+  - "Space"
+  - "Shift"
+  - "Ctrl"
+  - "E"
+  - "Q"
+  - "1"
+  - "2"
+  - "3"
+  - "4"
+  - "5"
+  - "6"
+  - "7"
+  - "8"
+  - "9"
+  - "Esc"
+  - "T"
+  - "F5"
+mouse:
+  - "move"
+  - "left_click"
+  - "right_click"
+  - "hold_left"
+  - "hold_right"
+  - "scroll_up"
+  - "scroll_down"
+click_targets:
+  - "center"
+  - "crosshair_on_entity"
+  - "ui_button@calibrated_bbox"
+durations:
+  max_hold_s: 3.0
+  max_move_s: 5.0
+cooldowns:
+  default_s: 0.2
+  attack_s: 0.5

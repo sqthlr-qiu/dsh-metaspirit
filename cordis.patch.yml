@@ -1,0 +1,19 @@
+# cordis.patch.yml —— DSH 配置补丁（发布态）
+# 语法与《AI实施规格书》第 10.4 节一致：- insert: [{id, name, config}]
+- insert:
+  - id: metaspirit
+    name: dsh-metaspirit
+    config:
+      enginePath: "./engine"
+      game: "minecraft"
+      mllm:
+        fast:
+          provider: "openai"
+          model: "deepseek-v4-flash"
+          base_url_env: "DEEPSEEK_BASE_URL"
+        deep:
+          provider: "openai"
+          model: "deepseek-v4"
+          base_url_env: "DEEPSEEK_BASE_URL"
+      budget:
+        daily_usd_cap: 10.0

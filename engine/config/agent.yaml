@@ -1,0 +1,53 @@
+# agent.yaml —— 全局配置（MLLM 档位 / 帧预算 / 阈值 / 预算熔断）
+game: "minecraft"
+window_title: "Minecraft*"
+mock: false
+mllm:
+  fast:
+    provider: "openai"
+    model: "deepseek-v4-flash"
+    base_url_env: "DEEPSEEK_BASE_URL"
+    api_key_env: "DEEPSEEK_API_KEY"
+    max_frames: 8
+    max_rois: 3
+    frame_max_px: 1024
+  deep:
+    provider: "openai"
+    model: "deepseek-v4"
+    base_url_env: "DEEPSEEK_BASE_URL"
+    api_key_env: "DEEPSEEK_API_KEY"
+perception:
+  capture_fps:
+    combat: 45
+    puzzle: 8
+    story: 2
+    explore: 10
+  keyframe_interval_ms:
+    combat: 400
+    puzzle: 1500
+    story: 4000
+    explore: 1000
+  frame_diff_threshold: 0.06
+  calibrator: "none"
+  combat_tracker: true
+decision:
+  interval_explore: 3.0
+  observe_delay: 0.8
+  max_same_action_repeat: 2
+memory:
+  vector_db: "json"
+  embedding: "none"
+  episodic_topk: 5
+learning:
+  reflect_on_mismatch: true
+  skill_min_success: 2
+  reward_fail_recompile: 3
+distill:
+  hardcase_min_count: 20
+  inject_topk: 3
+budget:
+  daily_usd_cap: 10.0
+safety:
+  forbidden_actions: ["alt+f4", "network_ops"]
+  reward_code_audit: true
+  sandbox: "restricted_globals"

@@ -1,0 +1,33 @@
+{
+  "name": "dsh-metaspirit",
+  "version": "0.2.1-rc.2",
+  "type": "module",
+  "main": "lib/index.js",
+  "description": "元灵 MetaSpirit —— 游戏自生存智能体 DSH 工具插件（Python 引擎 + 8 个受限工具）",
+  "engines": {
+    "dsh": ">=0.2.0",
+    "node": ">=24"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "~0.2.1-rc.2"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.2"
+  },
+  "scripts": {
+    "build": "tsdown"
+  },
+  "files": [
+    "lib",
+    "engine",
+    "cordis.patch.yml",
+    "cordis.yml",
+    "preset"
+  ]
+}

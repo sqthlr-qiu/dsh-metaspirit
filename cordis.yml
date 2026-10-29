@@ -1,0 +1,17 @@
+# cordis.yml —— 开发模式挂载（name 指向本地源码绝对路径/相对路径）
+# 安装态由 cordis.patch.yml 接管；开发态用此文件直接挂载 ./src/index.ts
+- !!js ./src/index.ts
+  config:
+    enginePath: "./engine"
+    game: "minecraft"
+    mllm:
+      fast:
+        provider: "openai"
+        model: "deepseek-v4-flash"
+        base_url_env: "DEEPSEEK_BASE_URL"
+      deep:
+        provider: "openai"
+        model: "deepseek-v4"
+        base_url_env: "DEEPSEEK_BASE_URL"
+    budget:
+      daily_usd_cap: 10.0

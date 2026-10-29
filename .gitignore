@@ -1,0 +1,14 @@
+# 运行时产物（可再生，不入库）
+__pycache__/
+*.pyc
+frames_cache/
+trajectory/
+skills/
+
+# 日志与本地环境
+*.log
+node_modules/
+
+# 系统杂项
+.DS_Store
+Thumbs.db

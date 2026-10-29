@@ -1,0 +1,25 @@
+# requirements.txt —— 仅列可选依赖（全部 optional extra，标准库兜底即可运行）
+# 引擎默认只用 Python 标准库；以下为增强能力可选安装，缺失时自动降级。
+# 安装示例：pip install -r requirements.txt  或按需：pip install openai pyyaml
+
+# 统一 MLLM API 接口（fast/deep 两档，OpenAI 兼容）；不装则用 urllib 直连 REST
+openai>=1.40
+
+# 配置解析（不装则使用内置极简 YAML 解析 / JSON 兜底）
+pyyaml>=6.0
+
+# 屏幕捕获（Windows 高帧率）；不装则合成测试帧模式
+dxcam>=0.0.5
+mss>=9.0
+
+# 键鼠注入（真实执行）；不装则 dry_run 模拟
+pydirectinput>=1.0.4
+
+# 向量记忆库（可选）；不装则 JSON 文件存储
+chromadb>=0.5
+
+# 坐标校准旁路（可选）；不装则 none 模式透传
+paddleocr>=2.7
+
+# 奖励函数沙盒增强（可选）；不装则用受限 globals 沙盒
+RestrictedPython>=7
