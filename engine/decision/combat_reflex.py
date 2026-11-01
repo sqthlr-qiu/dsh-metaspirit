@@ -7,8 +7,11 @@ from ms_types import Action, WorldState
 
 
 class CombatReflex:
-    def __init__(self):
+    def __init__(self, center: tuple = (320, 240)):
         self.last_handover_t = 0.0
+        # r3：画面中心可配置（默认 640×480 中心；真实分辨率经 cfg.decision.window_center 注入，
+        # 近战判定 dist 用的是"威胁 bbox 中心到画面中心"的距离）
+        self.center = tuple(center)
 
     def decide(self, ws: WorldState, tracks: list | None = None) -> Action:
         """六条优先级规则，返回单个原子动作。无威胁匹配 → 交还慢思层。"""
@@ -38,7 +41,7 @@ class CombatReflex:
         # 规则3：近战范围（bbox 与自我接近）→ 攻击（白名单 mouse 动作 left_click）
         self_b = ws.self_state  # 用 facing/animation 近似；此处用 bbox 距离粗略判断
         # 用威胁 bbox 中心与画面中心距离判断近战
-        cx, cy = 320, 240
+        cx, cy = self.center
         if top.bbox and len(top.bbox) == 4:
             ex = (top.bbox[0] + top.bbox[2]) / 2
             ey = (top.bbox[1] + top.bbox[3]) / 2

@@ -6,13 +6,50 @@ import json
 import os
 
 
+def _split_flow(s: str) -> list:
+    """顶层逗号分割 flow-style 内容（忽略引号内逗号与嵌套括号）。"""
+    parts, depth, quote, cur = [], 0, "", ""
+    for ch in s:
+        if quote:
+            cur += ch
+            if ch == quote:
+                quote = ""
+            continue
+        if ch in "\"'":
+            quote = ch
+            cur += ch
+        elif ch in "{[":
+            depth += 1
+            cur += ch
+        elif ch in "}]":
+            depth -= 1
+            cur += ch
+        elif ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        parts.append(cur)
+    return parts
+
+
 def _parse_scalar(s: str):
-    """把字符串标量解析为 Python 值。"""
+    """把字符串标量解析为 Python 值（支持 flow-style {..} / [..]）。"""
     s = s.strip()
     if s == "" or s.lower() == "null" or s.lower() == "~":
         return None
     if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
         return s[1:-1]
+    if s.startswith("{") and s.endswith("}"):
+        d = {}
+        for part in _split_flow(s[1:-1].strip()):
+            if ":" in part:
+                k, _, v = part.partition(":")
+                d[k.strip()] = _parse_scalar(v.strip())
+        return d
+    if s.startswith("[") and s.endswith("]"):
+        return [_parse_scalar(x) for x in _split_flow(s[1:-1].strip())]
     if s.lower() == "true":
         return True
     if s.lower() == "false":
@@ -158,7 +195,8 @@ def load_config(path: str) -> dict:
                 used = c
                 break
             except Exception as e:  # pragma: no cover - 兜底
-                print(f"[config_loader] 解析失败 {c}: {e}")
+                import sys as _sys
+                print(f"[config_loader] 解析失败 {c}: {e}", file=_sys.stderr)
                 continue
     if loaded is None:
         raise FileNotFoundError(f"找不到配置文件: {path} (尝试过 {candidates})")

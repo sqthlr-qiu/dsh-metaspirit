@@ -23,3 +23,7 @@ paddleocr>=2.7
 
 # 奖励函数沙盒增强（可选）；不装则用受限 globals 沙盒
 RestrictedPython>=7
+
+# 桌面悬浮窗（Overlay）后端：纯 Python 标准库实现（http.server + zlib + struct + binascii）
+# 零第三方依赖，无需在此文件新增任何条目；PNG 帧由 overlay.overlay_page 用 zlib 压缩编码。
+# 前端壳 overlay-helper/ 为 Electron（node），仅作透明窗加载本地 HTTP，缺失则降级浏览器打开。

@@ -47,6 +47,10 @@ distill:
   inject_topk: 3
 budget:
   daily_usd_cap: 10.0
+overlay:
+  enabled: true
+  host: "127.0.0.1"
+  port: 8765
 safety:
   forbidden_actions: ["alt+f4", "network_ops"]
   reward_code_audit: true

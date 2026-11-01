@@ -1,0 +1,19 @@
+# keymap/minecraft.yaml —— Minecraft 意图→按键绑定（示例；其他游戏各写一份，键位可完全不同）
+# 原则：时间轴动作只写"意图"，具体按键在此映射——换游戏只换本文件，不改时间轴/提示词/调度器。
+intents:
+  dodge:          {type: keypress, key: Space}
+  jump:           {type: keypress, key: Space}
+  move_forward:   {type: keypress, key: W}
+  move_back:      {type: keypress, key: S}
+  move_left:      {type: keypress, key: A}
+  move_right:     {type: keypress, key: D}
+  stop_move:      {type: wait, detail: wait}
+  camera_turn:    {type: move, detail: move}     # dx = degrees × camera.dx_per_degree × 方向
+  interact:       {type: keypress, key: E}       # 打开背包/使用
+  attack:         {type: click, detail: left_click}
+  mine:           {type: click, detail: hold_left}
+  place_block:    {type: click, detail: right_click}
+  drop_item:      {type: keypress, key: Q}
+  open_chat:      {type: keypress, key: T}
+camera:
+  dx_per_degree: 10.0    # 视角灵敏度：每度鼠标位移（按实测校准）

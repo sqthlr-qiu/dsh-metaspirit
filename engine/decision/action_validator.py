@@ -1,6 +1,8 @@
 # decision/action_validator.py —— 操作合法性验证（白名单 + 坐标范围 + 冷却 + 重复上限）
 # 铁律：ActionValidator 白名单强制；违规改写 wait 并记日志。战斗反射输出也需过校验。
+# 协议卫生：拒绝日志走 stderr（stdout 是 JSON-RPC 通道）。
 
+import sys
 import time
 import json
 
@@ -8,6 +10,10 @@ from ms_types import Action
 
 # 允许的动作类型
 _ALLOWED_TYPES = {"keypress", "click", "move", "skill", "wait", "speak"}
+
+
+def _err(msg: str):
+    print(msg, file=sys.stderr)
 
 
 class ActionValidator:
@@ -21,6 +27,10 @@ class ActionValidator:
         self.keys = set(self.action_space.get("keys", []))
         self.mouse = set(self.action_space.get("mouse", []))
         self.cooldowns = self.action_space.get("cooldowns", {}) or {}
+        # 禁用动作清单（配置消费：safety.forbidden_actions 或顶层 forbidden_actions）
+        _f = self.action_space.get("forbidden_actions") \
+            or (self.action_space.get("safety", {}) or {}).get("forbidden_actions") or []
+        self.forbidden = set(str(x) for x in _f)
         self.recent: list = []          # 最近动作指纹（用于重复上限）
         self.last_exec_t: dict = {}     # 动作指纹 -> 上次执行时间
 
@@ -46,6 +56,9 @@ class ActionValidator:
         # 类型白名单
         if act.type not in _ALLOWED_TYPES:
             return self._reject(act, f"type_not_whitelisted:{act.type}")
+        # 禁用动作清单（如 "keypress/Q" 或裸 "speak"）
+        if act.detail in self.forbidden or f"{act.type}/{act.detail}" in self.forbidden:
+            return self._reject(act, f"forbidden_action:{act.type}/{act.detail}")
         # keypress 必须在 keys 白名单
         if act.type == "keypress":
             if act.detail not in self.keys:
@@ -62,7 +75,9 @@ class ActionValidator:
                 if not (0 <= x1 <= w and 0 <= y1 <= h and 0 <= x2 <= w and 0 <= y2 <= h
                         and x1 <= x2 and y1 <= y2):
                     return self._reject(act, f"bbox_out_of_range:{bbox}")
-        # skill 必须在技能库（由调用方保证）；这里只校验类型为 skill
+        # skill 必须带非空技能名（技能是否存在于库由执行方 invoke 时判定）
+        if act.type == "skill" and not str(act.detail or "").strip():
+            return self._reject(act, "skill_no_detail")
         # 冷却
         fp = self.fingerprint(act)
         cd = self._cooldown_for(act)
@@ -87,5 +102,5 @@ class ActionValidator:
 
     def _reject(self, act: Action, reason: str) -> tuple:
         wait = Action(type="wait", detail="wait", params={}, expected_effect="（违规改写）保持安全")
-        print(f"[ActionValidator] 拒绝动作 {act.type}/{act.detail}: {reason} -> 改写为 wait")
+        _err(f"[ActionValidator] 拒绝动作 {act.type}/{act.detail}: {reason} -> 改写为 wait")
         return (wait, False, reason)

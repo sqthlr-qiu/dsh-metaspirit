@@ -15,6 +15,12 @@ class GoalCompiler:
         self.game_background = game_background
         self.goal_tree: dict = {"survival_goals": [], "current_goals": [], "growth_goals": [], "no_go": []}
         self.goals: list = []  # list[Goal]
+        self.user_directives: list = []  # 悬浮窗玩家指令上下文（最高优先级，不越过 no_go）
+
+    def add_user_directive(self, text: str):
+        """把悬浮窗玩家一句话作为 user_directive 上下文追加（生存底线 no_go 仍优先）。"""
+        if text:
+            self.user_directives.append(text)
 
     def _to_goals(self, d: dict) -> list:
         out = []

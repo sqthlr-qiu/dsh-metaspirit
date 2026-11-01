@@ -1,11 +1,11 @@
-# cordis.patch.dev.yml —— 开发模式挂载（绝对路径，免安装验证用）
-# 用法：把 <ABS_PLUGIN_DIR> 替换为你本机的 dsh-plugin 绝对路径，然后：
-#   dsh --profile web --patch <本文件绝对路径>
+# cordis.patch.dev.yml —— 开发模式挂载（本机绝对路径，免安装验证用）
+# 用法：dsh --profile web --patch <本文件绝对路径>
+# 分发到其他机器时，把 PLUGIN_ABS 两个值替换为本机 dsh-plugin 绝对路径。
 - insert:
   - id: metaspirit
-    name: "<ABS_PLUGIN_DIR>/src/index.ts"
+    name: "C:/Users/15019/WorkBuddy/自制游戏生灵/metaspirit/dsh-plugin/src/index.ts"
     config:
-      enginePath: "<ABS_PLUGIN_DIR>/engine"
+      enginePath: "C:/Users/15019/WorkBuddy/自制游戏生灵/metaspirit/dsh-plugin/engine"
       game: "minecraft"
       mllm:
         fast:

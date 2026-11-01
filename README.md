@@ -10,19 +10,21 @@
 
 | 部分 | 技术 | 职责 |
 |---|---|---|
-| `dsh-metaspirit`（本目录） | TypeScript | 注册 8 个 `metaspirit_*` 工具；管理 Python 引擎子进程（spawn / JSON-RPC / 健康检查 / 崩溃重启） |
-| `engine/`（Python 本体） | Python 3.11+ | 抓屏、帧采样、MLLM 感知、记忆、键鼠执行、轨迹落盘；以 JSON-RPC over stdio 与插件通信 |
+| `dsh-metaspirit`（本目录） | TypeScript | 注册 11 个 `metaspirit_*` 工具；管理 Python 引擎子进程（spawn / JSON-RPC / 健康检查 / 崩溃重启） |
+| `engine/`（Python 本体） | Python 3.11+ | 抓屏、帧采样、MLLM 感知、记忆、键鼠执行、轨迹落盘；以 JSON-RPC over stdio 与插件通信；内嵌 Overlay HTTP 服务（悬浮窗后端） |
+| `overlay-helper/`（Electron 壳） | Electron / CommonJS | 透明无边框常驻悬浮窗：加载引擎内嵌 Overlay HTTP 服务（`http://127.0.0.1:8765/?embed=1`） |
 
-## 8 个工具（对应引擎 JSON-RPC 方法）
+## 11 个工具（对应引擎 JSON-RPC 方法）
 
-`metaspirit_start` / `metaspirit_perceive` / `metaspirit_act` / `metaspirit_reflect` /
-`metaspirit_memory_search` / `metaspirit_skills` / `metaspirit_goals` / `metaspirit_stop`
+`metaspirit_start` / `metaspirit_perceive` / `metaspirit_act` / **`metaspirit_plan`**（v1.4.1 时间轴流水线单拍决策）/ **`metaspirit_pipeline`**（v1.4.1-r3 流水线主循环 start/stop/status）/ `metaspirit_reflect` /
+`metaspirit_memory_search` / `metaspirit_skills` / `metaspirit_goals` / `metaspirit_stop` /
+`metaspirit_overlay`
 
 ## 安装
 
 ```bash
 # 方式 A：从 GitHub 仓库安装（推荐，lib/ 已随库分发，无需本地构建）
-dsh plugin --profile web add https://github.com/<OWNER>/dsh-metaspirit.git
+dsh plugin --profile web add https://github.com/sqthlr-qiu/dsh-metaspirit.git
 
 # 方式 B：本地安装插件（开发态）
 dsh plugin --profile web add file:/abs/path/dsh-metaspirit
@@ -36,7 +38,7 @@ dsh --profile web --dump-config | grep metaspirit
 
 > `package.json` 仅保留 `build` 脚本（`pnpm build` 可用 tsdown 从 src 重新生成 lib）；不再注册 `prepare`，避免从 git 安装时触发远程构建。`lib/` 为与 `src/` 同步维护的等价 JS 产物，直接可用。
 
-> **requirePreset（默认 false）**：插件 `apply(ctx, config)` 接收 `config`。当 `config.requirePreset=true` 时，仅在元灵预设（preset）已挂载后才注册 8 个工具，避免误用；默认 `false`（挂载即可用，便于无预设环境直接体验）。该配置写在 `cordis.patch.yml` / `cordis.yml` 的 `config` 段。
+> **requirePreset（默认 false）**：插件 `apply(ctx, config)` 接收 `config`。当 `config.requirePreset=true` 时，仅在元灵预设（preset）已挂载后才注册 11 个工具，避免误用；默认 `false`（挂载即可用，便于无预设环境直接体验）。该配置写在 `cordis.patch.yml` / `cordis.yml` 的 `config` 段。
 
 ## Python 解释器（engine_client）
 
@@ -79,6 +81,39 @@ python rpc_server.py --selftest
 # 手动喂 ping（stdin 一行一个 JSON-RPC 请求）
 echo '{"jsonrpc":"2.0","method":"ping","params":{},"id":1}' | python rpc_server.py
 ```
+
+## 桌面悬浮窗（元灵陪聊 + 看屏 + 玩游戏）
+
+元灵的悬浮窗是一个**透明无边框常驻窗**，用户可拖拽到屏幕任意位置，与元灵对话、看它实时感知的世界状态与决策。架构上**零重依赖**：
+
+- **后端**：Python 引擎内嵌 `OverlayServer`（`engine/overlay/`，纯标准库 `http.server` + `zlib` 编码 PNG，零第三方依赖），默认 `127.0.0.1:8765`，提供 `/`（聊天+监控页）、`/api/state`、`/api/screen`、`/api/chat`、`/api/events`。
+- **壳**：`overlay-helper/`（Electron 透明窗）只负责加载上述 HTTP 地址，本身不含业务逻辑；Electron 缺失时自动降级为浏览器打开。
+
+### 启动方式一：通过 DSH 工具（推荐）
+
+在对话中调用 `metaspirit_overlay`，参数 `action`：
+
+- `show`：引擎先起 Overlay HTTP 服务，再拉起 Electron 透明窗；**若未找到 Electron**（见下方探测顺序），返回 `{ok:false, fallback_url, hint:"未找到 Electron，请用浏览器打开"}`，此时 HTTP 服务仍在运行，用户可直接用浏览器打开 `fallback_url`。
+- `hide`：关闭悬浮窗并停止 Overlay HTTP 服务。
+- `status`：返回 `{running, url, port, electron_found}`。
+
+Electron 探测顺序（`engine_client.overlayElectronBin()`）：
+
+1. 环境变量 `METASPIRIT_ELECTRON`（指向 electron 可执行文件绝对路径）；
+2. `~/.dsh/electron/` 目录（dsh-pet 已下载的那份，目录内搜 `electron` / `electron.exe`）；
+3. `PATH` 中的 `electron`；
+4. 都没有 → 返回 `null`（降级浏览器打开）。
+
+### 启动方式二：引擎独立常驻（无需 DSH）
+
+```bash
+cd engine
+METASPIRIT_MOCK=1 python main.py --overlay   # 启动引擎 + Overlay HTTP 服务
+# 浏览器打开 http://127.0.0.1:8765/ （或带嵌入参数 http://127.0.0.1:8765/?embed=1）
+# 也可用 Electron 壳：cd ../overlay-helper && electron main.js
+```
+
+> `overlay-helper/package.json` 仅声明 `electron` 为 `optionalDependencies`，**不强制本地安装**；未安装时按上面"降级浏览器打开"处理。`OVERLAY_URL` 环境变量可覆盖默认地址。
 
 ## 已知限制
 

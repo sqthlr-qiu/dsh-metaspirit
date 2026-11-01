@@ -6,7 +6,7 @@
   "description": "元灵 MetaSpirit —— 游戏自生存智能体 DSH 工具插件（Python 引擎 + 8 个受限工具）",
   "engines": {
     "dsh": ">=0.2.0",
-    "node": ">=24"
+    "node": ">=22"
   },
   "dsh": {
     "bundle": {

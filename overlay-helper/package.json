@@ -1,0 +1,15 @@
+{
+  "name": "metaspirit-overlay-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "元灵 MetaSpirit 桌面悬浮窗壳（Electron 透明窗，加载引擎内嵌 Overlay HTTP 服务）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "元灵 MetaSpirit",
+  "license": "MIT",
+  "optionalDependencies": {
+    "electron": "^33"
+  }
+}

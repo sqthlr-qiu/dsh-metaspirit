@@ -23,10 +23,12 @@ class ReActLoop:
         self.provider = provider
         self.cfg = cfg
         self.p6_prompt = p6_prompt or _load_prompt("p6_decision.txt")
+        self.p1_identity = _load_prompt("p1_identity.txt")  # P1 身份/no_go 红线注入 system
 
     async def step(self, ws: WorldState, goal_tree: dict, action_space: dict,
-                   recent_trajectory: list, skill_menu: list, memory_digest: list) -> Action:
-        """决策主入口：返回 Action（含 expected_effect）。"""
+                   recent_trajectory: list, skill_menu: list, memory_digest: list,
+                   user_message: str = "") -> Action:
+        """决策主入口：返回 Action（含 expected_effect）。user_message 为悬浮窗玩家指令上下文。"""
         if isinstance(self.provider, MockProvider):
             data = (await self.provider.complete(tier="fast", system="", user="", mode="decision"))[0]
         else:
@@ -39,10 +41,14 @@ class ReActLoop:
                 f"【技能菜单】{json.dumps(skill_menu, ensure_ascii=False)}\n"
                 f"【记忆摘要】{json.dumps(memory_digest, ensure_ascii=False)}\n"
             )
+            if user_message:
+                user += f"\n【玩家实时指令（最高优先级，但不越过生存底线 no_go）】{user_message}\n"
 
             async def _make(feedback):
                 data, raw = await self.provider.complete(
-                    tier="fast", system="你是元灵的大脑。", user=user + (feedback or ""),
+                    tier="fast",
+                    system="你是元灵的大脑。" + (f"\n\n{self.p1_identity}" if self.p1_identity else ""),
+                    user=user + (feedback or ""),
                     expect_json=True, mode="decision")
                 return data, raw
 

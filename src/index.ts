@@ -1,8 +1,10 @@
-// index.ts —— DSH 工具插件入口：注册 8 个 metaspirit_* 工具（对应引擎 JSON-RPC 方法）
+// index.ts —— DSH 工具插件入口：注册 11 个 metaspirit_* 工具（对应引擎 JSON-RPC 方法）
 //
 // 形态：name='metaspirit'、inject=['tools']、apply(ctx, config) 用 defineTool 注册工具。
 // 每个工具的 execute 透传到 Python 引擎子进程（engine_client.rpc）。
 // config 来自 cordis.patch.yml / cordis.yml（enginePath、pythonBin、requirePreset 等）。
+// v1.4.1：新增 metaspirit_plan（时间轴流水线单拍决策）——核心决策机制在 DSH 形态可达。
+// v1.4.1-r3：新增 metaspirit_pipeline（流水线主循环 start/stop/status）。
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 // Node 原生 type-stripping 加载 TS 源要求显式 .ts 扩展名；tsdown(rolldown) 构建同样兼容
@@ -62,6 +64,36 @@ const TOOLS: ToolDef[] = [
     execute: (e, a) => e.rpc('act', { action: a.action, expected_effect: a.expected_effect }),
   },
   {
+    name: 'metaspirit_plan',
+    description: 'v1.4.1 时间轴流水线单拍决策：感知 → P13 规划一条「时刻→预期→操作」短时时间轴（1-12 项，游戏无关意图，自动绑定按键并定时执行）。规划不等上一条执行完；若上一条未完成则取代（supersede）并附改进意见；返回七段结构化决策日志（现状/是否改变/上一步完成情况/目标达成度与反思+反思落实反馈/下一步目标/操作概述/时间轴）。持续自动运行请改用引擎 --overlay 模式或多次调用本工具。',
+    parameters: {
+      user_message: { type: 'string', description: '玩家实时指令（最高优先级，不越过生存底线）' },
+      fresh: { type: 'boolean', description: '强制重新感知后再规划（默认用最近一次世界状态）' },
+    },
+    execute: (e, a) => e.rpc('plan', {
+      user_message: a.user_message || '', fresh: !!a.fresh,
+    }),
+  },
+  {
+    name: 'metaspirit_pipeline',
+    description: 'v1.4.1-r3 时间轴流水线主循环控制：start 让引擎自主持续「感知→规划→执行」（不等 Agent 逐拍调用）/ stop 停止并返回会话统计 / status 查询运行状态与流水线指标。start 需先 metaspirit_start。',
+    parameters: {
+      action: { type: 'string', description: 'start | stop | status' },
+      n_cycles: { type: 'number', description: 'start 时的拍数（缺省=持续运行直到 stop）' },
+      plan_interval: { type: 'number', description: 'start 时每拍规划间隔秒（缺省用配置）' },
+    },
+    execute: async (e, a) => {
+      const action = (a.action || 'status').toLowerCase()
+      if (action === 'start') {
+        return e.rpc('pipeline_start', {
+          n_cycles: a.n_cycles ?? null, plan_interval: a.plan_interval ?? null,
+        })
+      }
+      if (action === 'stop') return e.rpc('pipeline_stop', {})
+      return e.rpc('pipeline_status', {})
+    },
+  },
+  {
     name: 'metaspirit_reflect',
     description: 'P8 反思：把一次"预期不符"的经历复盘为可复用教训并写入记忆库。',
     parameters: {
@@ -105,6 +137,29 @@ const TOOLS: ToolDef[] = [
     description: '停止引擎，返回本会话统计（生存时长/技能数/成本）。',
     parameters: {},
     execute: (e, a) => e.rpc('stop', {}),
+  },
+  {
+    name: 'metaspirit_overlay',
+    description: '桌面悬浮窗：show 拉起透明窗（Electron）并启动后台 HTTP 服务 / hide 关闭 / status 查询状态。',
+    parameters: {
+      action: { type: 'string', description: 'show | hide | status' },
+    },
+    execute: async (e, a) => {
+      const action = (a.action || 'status').toLowerCase()
+      if (action === 'status') {
+        const st = await e.rpc('overlay', { action: 'status' })
+        return { ...st, electron_found: e.overlayElectronBin() !== null }
+      }
+      if (action === 'hide') {
+        await e.rpc('overlay', { action: 'hide' })
+        e.hideOverlay()
+        return { running: false, electron_found: e.overlayElectronBin() !== null }
+      }
+      // show：先启动引擎 Overlay HTTP 服务，再尝试拉起 Electron 透明窗
+      const st = await e.rpc('overlay', { action: 'show' })
+      const r = e.showOverlay({ url: st.url, port: st.port })
+      return { ...r, ...st }
+    },
   },
 ]
 

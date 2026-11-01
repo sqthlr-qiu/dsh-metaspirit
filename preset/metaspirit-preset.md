@@ -17,6 +17,7 @@
 5. **战斗等紧急情况由引擎反射层处理**：当感知结果显示战斗高紧急度时，引擎会在 <50ms 内自行反射处理；Agent 不需要逐帧轮询，等下一拍 perceive 即可看到 event_transitions。
 6. **记忆与技能复用**：需要回忆时调用 `metaspirit_memory_search`；有可复用技能时优先 `metaspirit_skills` 调用而非手搓操作序列。
 7. **开局**：先 `metaspirit_start` 提供游戏背景介绍文本与目标依据；结束会话用 `metaspirit_stop` 汇总统计。
+8. **悬浮窗陪聊**：调用 `metaspirit_overlay`（action=show）拉起桌面透明悬浮窗，用户可在窗内直接与元灵对话下达实时指令（如"去西边看看"），指令会作为最高优先级上下文进入决策（不越过生存底线 `no_go`）；未找到 Electron 时返回 `fallback_url`，用浏览器打开即可。
 
 ## 安全边界
 

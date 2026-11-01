@@ -79,6 +79,10 @@ class MockProvider:
             return self._mock_reflect(), ""
         if mode == "reward":
             return self._mock_reward_code(), ""  # 返回代码字符串
+        if mode == "chat":
+            return self._mock_chat(user), ""
+        if mode == "timeline":
+            return self._mock_timeline(user), ""
         return {"text": "mock ok"}, "mock ok"
 
     # —— 脚本化合规输出 ——
@@ -135,6 +139,76 @@ class MockProvider:
             "to_memory": {"semantic": ["出生点附近树木可用于早期木材采集"], "skill_candidate": ""},
             "next_time": "下次遇到同样情况先微调走位再前进",
         }
+
+    def _mock_chat(self, user: str) -> dict:
+        """悬浮窗对话：人物卡口吻的中文回复（如'收到，我这就去看西边……'）。"""
+        u = (user or "").strip() or "（沉默）"
+        return {
+            "reply": f"收到，{u}……我这就去办，先把周围情况看清楚。",
+            "thought": "理解玩家指令，准备行动",
+            "action": {"type": "wait", "detail": "wait", "params": {}},
+            "expected_effect": "响应玩家指令",
+        }
+
+    def _mock_timeline(self, user: str) -> dict:
+        """P13 时间轴规划 Mock（v1.4.1）：
+        - 动作一律为抽象意图（dodge/camera_turn/move_left/stop_move…），不含具体按键；
+        - payload 里 prev_timeline.pending 非空 → supersede 变体（附对上一条未执行部分的改进意见）；
+        - payload 里 pending_reflections 非空 → 逐条回填反思落实反馈（反思有反馈）。"""
+        import re as _re
+        supersede = '"pending": []' not in (user or "")
+        out = {
+            "situation_analysis": "敌人比预估更近，上一条时间轴的节奏偏慢，需要收紧时间轴并加大转向幅度"
+            if supersede else
+            "前方有树木资源，天色渐暗；自身状态健康，紧迫度低，可按既定采集路线推进",
+            "change_prev": "supersede" if supersede else "keep",
+            "goal_progress": ("生存目标达成约 70%；本回合规避目标达成 30%" if supersede
+                              else "当前目标（收集木材/维持生存）达成约 60%"),
+            "reflection": ("上条时间轴 0.15s 的视角转动幅度不足（约 15 度），未覆盖侧翼；0.20s 变向偏晚"
+                           if supersede else
+                           "上一步前进有效靠近了目标；视角转动幅度略小，本次加大到 30 度"),
+            "next_goal": ("在 0.5s 内脱离攻击/爆炸范围并让侧翼进入画面" if supersede
+                          else "继续接近目标资源并保持对周边的观察"),
+            "ops_plan": ("先闪避，再加大视角右转幅度并提前变向，最后停住确认安全" if supersede
+                         else "保持前进，中途转动视角扫视侧翼，到位后停住观察"),
+            "timeline": ([
+                {"at": 0.10, "intent": "dodge", "params": {"duration_s": 0.10},
+                 "expected": "翻滚闪避完成，脱离爆炸范围"},
+                {"at": 0.15, "intent": "camera_turn",
+                 "params": {"degrees": 30, "direction": "right", "duration_s": 0.10},
+                 "expected": "视野右移 30 度，侧翼进入画面"},
+                {"at": 0.20, "intent": "move_left", "params": {"duration_s": 0.14},
+                 "expected": "移动方向改为向左，横向拉开距离"},
+                {"at": 0.34, "intent": "stop_move", "params": {},
+                 "expected": "停止移动，稳定视角观察"},
+            ] if supersede else [
+                {"at": 0.10, "intent": "move_forward", "params": {"duration_s": 0.30},
+                 "expected": "前进一段距离，靠近目标"},
+                {"at": 0.50, "intent": "camera_turn",
+                 "params": {"degrees": 30, "direction": "left", "duration_s": 0.10},
+                 "expected": "视野左移 30 度，侧翼进入画面"},
+                {"at": 0.70, "intent": "move_forward", "params": {"duration_s": 0.30},
+                 "expected": "继续前进接近资源"},
+                {"at": 1.10, "intent": "stop_move", "params": {},
+                 "expected": "停止移动，进入下一感知拍"},
+            ]),
+            "improvements_on_discarded": ([
+                "上一条 0.15s 的视角转动幅度不足（约 15 度），本次改为 30 度并保持 0.1s",
+                "上一条 0.20s 的变向偏晚，敌情比预估近，本次维持 0.20s 但改用横向位移",
+                "上一条 0.34s 的停止保留，但停止前必须确认已脱离危险半径",
+            ] if supersede else []),
+            "reflection_feedback": [],
+        }
+        # 反思落实反馈：对 payload 里待评估的 rf-* 逐条给出 Mock 评估（applied + 证据）
+        # 注意：只扫 payload 段（【输入】之后），避免把 P13 提示词里的示例 id（rf-3）误当待评估项
+        payload_part = (user or "").split("【输入】", 1)[-1]
+        ids = _re.findall(r'"id": "(rf-\d+)"', payload_part)
+        if ids:
+            out["reflection_feedback"] = [
+                {"id": rid, "status": "applied",
+                 "evidence": "本轮 0.15s 已按 30 度执行且侧翼进入画面，观察反馈与预期一致（Mock 评估）"}
+                for rid in ids]
+        return out
 
     def _mock_reward_code(self) -> str:
         return (
@@ -246,9 +320,15 @@ class OpenAICompatProvider:
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json",
                      "Authorization": f"Bearer {self.api_key}"})
-        try:
+
+        def _urlopen_blocking() -> str:
+            # r3：同步 urlopen 移入线程池——无 openai SDK 时的降级分支不再阻塞事件循环
+            # （此前 ≤60s 的同步阻塞会挤压时间轴定时器，损害定时精度）
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                body = resp.read().decode("utf-8")
+                return resp.read().decode("utf-8")
+
+        try:
+            body = await asyncio.to_thread(_urlopen_blocking)
             return json.loads(body)["choices"][0]["message"]["content"] or "{}"
         except urllib.error.URLError as e:
             raise RuntimeError(f"OpenAI 兼容接口调用失败: {e}")
@@ -266,7 +346,7 @@ def _extract_code(text: str) -> str:
 def build_provider(cfg: dict, tier: str = "fast", budget: BudgetMeter | None = None):
     """按配置构造 provider。环境变量 METASPIRIT_MOCK=1 或 cfg.mock=true 走 Mock。"""
     import os
-    if os.environ.get("METASPIRIT_MOCK", "").strip() in ("1", "true", "True") or cfg.get("mock"):
+    if os.environ.get("METASPIRIT_MOCK", "").strip().lower() in ("1", "true", "yes", "on") or cfg.get("mock"):
         return MockProvider()
     mllm = cfg.get("mllm", {})
     spec = mllm.get(tier, mllm.get("fast", {}))

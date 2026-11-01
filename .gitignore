@@ -1,14 +1,14 @@
-# 运行时产物（可再生，不入库）
+# 依赖与构建
+node_modules/
+*.log
+
+# 引擎运行时数据（不得入库）
+engine/__pycache__/
+engine/frames_cache/
+engine/memory_data/
+engine/trajectory/
+engine/logs/
+engine/skills/*.py
+engine/skills/*.meta.json
 __pycache__/
 *.pyc
-frames_cache/
-trajectory/
-skills/
-
-# 日志与本地环境
-*.log
-node_modules/
-
-# 系统杂项
-.DS_Store
-Thumbs.db
